@@ -1,0 +1,12 @@
+/control/verbose 2
+/run/verbose 2
+/run/initialize
+
+# /vis/scene/create
+# /vis/scene/add/volume
+/vis/open VRML2FILE
+# /vis/viewer/create
+
+/vis/drawVolume
+/run/beamOn 1
+/vis/viewer/update

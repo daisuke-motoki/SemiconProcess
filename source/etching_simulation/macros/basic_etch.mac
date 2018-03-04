@@ -1,0 +1,18 @@
+/control/verbose 2
+/run/verbose 2
+/tracking/verbose 2
+/process/verbose 2
+/run/initialize
+
+/gps/direction 0 0 -1
+/gps/energy 450.0 eV
+# /gps/particle e-
+/gps/ion 18 40 1 0
+/gps/pos/type Plane
+/gps/pos/shape Rectangle
+/gps/pos/centre 0 0 0 mm
+/gps/pos/halfx 0.005 mm
+/gps/pos/halfy 0.005 mm
+# /gps/ang/type iso
+
+/run/beamOn 10
