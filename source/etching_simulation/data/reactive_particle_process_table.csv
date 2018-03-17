@@ -1,0 +1,3 @@
+particle_name,material_name,initiation_process_name,process_type,min_energy[keV],probability,etching_rate[1/nm3],replace_material_name
+Ar40,Silicon,ionIoni,etching,0.0,1.0,0.001,Vacuum
+Ar40,SiO2,ionIoni,etching,0.0,1.0,0.001,Vacuum

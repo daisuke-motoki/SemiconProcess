@@ -4,19 +4,20 @@ import settings
 
 if __name__ == "__main__":
     filename = "initial_wafer_phantoms.npz"
-    shape = (5, 2, 10)
+    shape = (500, 100, 500)
     material_id_name = settings.MATERIAL_INDEX_NAME
     vacuum_mat_id = 0
     z_layer_materials = {
-        "Silicon": [0, 2],
-        "SiO2": [2, 4],
-        "PhotoResist": [4, 5],
+        "Silicon": [0, 200],
+        "SiO2": [200, 450],
+        "PhotoResist": [450, 460],
+        "Vacuum": [460, 500]
     }
     excavation_zyx = [
-        [[4, 5], [0, 2], [0, 4]],
-        [[4, 5], [0, 2], [5, 6]],
-        [[4, 5], [0, 2], [7, 8]],
-        [[4, 5], [0, 2], [9, 10]],
+        [[450, 460], [0, 100], [0, 200]],
+        [[450, 460], [0, 100], [250, 300]],
+        [[450, 460], [0, 100], [350, 400]],
+        [[450, 460], [0, 100], [450, 500]],
     ]
 
     material_name_id = dict()

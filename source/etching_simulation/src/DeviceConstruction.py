@@ -1,5 +1,4 @@
 import numpy as np
-from collections import OrderedDict
 
 import Geant4 as g4
 from g4parameterised import G4PVParameterised
@@ -10,7 +9,7 @@ import settings
 class DeviceConstruction(g4.G4VUserDetectorConstruction):
     """
     """
-    def __init__(self, init_filename):
+    def __init__(self, init_filename, material_manager):
         """
         """
         super(DeviceConstruction, self).__init__()
@@ -20,7 +19,7 @@ class DeviceConstruction(g4.G4VUserDetectorConstruction):
         self.world_material = None
         self.process_space_material = None
 
-        self.original_materials = dict()
+        self.material_manager = material_manager
 
         self.materials = None
         self.material_IDs = None
@@ -28,6 +27,9 @@ class DeviceConstruction(g4.G4VUserDetectorConstruction):
         self.n_voxel_x = settings.n_voxel_x
         self.n_voxel_y = settings.n_voxel_y
         self.n_voxel_z = settings.n_voxel_z
+
+        self.voxel_logical = None
+        self.density_changer = None
 
     def __del__(self):
         """
@@ -39,7 +41,11 @@ class DeviceConstruction(g4.G4VUserDetectorConstruction):
         """
         self.DefineMaterials()
         self.ReadPhantomFile()
-        return self.ConstructDevice()
+        world = self.ConstructDevice()
+        if self.density_changer is not None:
+            self.voxel_logical.SetSensitiveDetector(self.density_changer)
+
+        return world
 
     def DefineMaterials(self):
         """
@@ -90,10 +96,10 @@ class DeviceConstruction(g4.G4VUserDetectorConstruction):
 
         self.world_material = Vacuum_material
         self.process_space_material = Vacuum_material
-        self.original_materials["Vacuum"] = Vacuum_material
-        self.original_materials["Silicon"] = Silicon_material
-        self.original_materials["SiO2"] = SiO2_material
-        self.original_materials["PhotoResist"] = PhotoResist_material
+        self.material_manager.add_base_material("Vacuum", Vacuum_material)
+        self.material_manager.add_base_material("Silicon", Silicon_material)
+        self.material_manager.add_base_material("SiO2", SiO2_material)
+        self.material_manager.add_base_material("PhotoResist", PhotoResist_material)
 
     def ReadPhantomFile(self, filename=None):
         """
@@ -102,50 +108,34 @@ class DeviceConstruction(g4.G4VUserDetectorConstruction):
             filename = self.phantom_filename
         phantoms = np.load(filename)
         voxels = phantoms["voxel"]
-        densities = phantoms["density"]
+        # check total component is one for each voxel
+        sum_comp = voxels.sum(axis=1)
+        if sum_comp.max() != 1 or sum_comp.min() != 1:
+            raise ValueError("Sum of material component of voxel must be 1!.")
+
         material_IDs = list()
-        materials_dict = OrderedDict()
         dict_name_ID = dict()
         new_ID = 0
-        for mat_ID, density in zip(voxels, densities):
-            mat_name = settings.MATERIAL_ID_NAME[mat_ID]
-            original = self.original_materials[mat_name]
-            original_dens = original.GetDensity() * g4.cm3/g4.g
-            if density == -1:
-                mat_name = "{}__{}".format(mat_name, original_dens)
-                density = original_dens
-            else:
-                mat_name = "{}__{}".format(mat_name, density)
-
-            material = None
-            try:
-                material = materials_dict[mat_name]
-            except:
-                material = self.BuildMaterialWithChangingDensity(original,
-                                                                 density,
-                                                                 mat_name)
-                materials_dict[mat_name] = material
-                dict_name_ID[mat_name] = new_ID
+        mat_keys = sorted(settings.MATERIAL_INDEX_NAME)
+        mat_name_array = np.array(
+            [settings.MATERIAL_INDEX_NAME[key] for key in mat_keys]
+        )
+        for component in voxels:
+            mat_names = mat_name_array[component > 0.]
+            fractions = component[component > 0.]
+            material, is_created = \
+                self.material_manager.get_or_create_mixed_material(mat_names,
+                                                                   fractions)
+            mixed_name = str(material.GetName())
+            if is_created:
+                dict_name_ID[mixed_name] = new_ID
                 new_ID += 1
 
-            mat_ID = dict_name_ID[mat_name]
+            mat_ID = dict_name_ID[mixed_name]
             material_IDs.append(mat_ID)
 
-        self.materials = list(materials_dict.values())
+        self.materials = list(self.material_manager.get_all_mixed_materials())
         self.material_IDs = material_IDs
-
-    @staticmethod
-    def BuildMaterialWithChangingDensity(original, density, name):
-        """
-        """
-        elems = original.GetElementVector()
-        nelem = len(elems)
-        new_material = g4.G4Material(name, density*g4.g/g4.cm3, nelem)
-        for i in range(nelem):
-            frac = original.GetFractionVector()[i]
-            elem = original.GetElement(i)
-            new_material.AddElement(elem, frac)
-        return new_material
 
     def ConstructDevice(self):
         """
@@ -217,7 +207,7 @@ class DeviceConstruction(g4.G4VUserDetectorConstruction):
                                voxel_length_x,
                                voxel_length_y,
                                voxel_length_z)
-        voxel_logical = g4.G4LogicalVolume(
+        self.voxel_logical = g4.G4LogicalVolume(
             voxel_solid, self.process_space_material, "voxel_logical")
         # voxel_logical.SetVisAttributes(g4.G4VisAttributes(G4VisAttributes::GetInvisible()))
 
@@ -249,7 +239,7 @@ class DeviceConstruction(g4.G4VUserDetectorConstruction):
 
         n_voxel = self.n_voxel_x * self.n_voxel_y * self.n_voxel_z
         wafer_physical = G4PVParameterised("wafer_physical",
-                                           voxel_logical,
+                                           self.voxel_logical,
                                            process_space_logical,
                                            g4.G4global.EAxis.kXAxis,
                                            n_voxel,
@@ -258,3 +248,8 @@ class DeviceConstruction(g4.G4VUserDetectorConstruction):
         wafer_physical.SetRegularStructureId(1)
 
         return self.world_physical
+
+    def set_density_changer(self, sd):
+        """
+        """
+        self.density_changer = sd

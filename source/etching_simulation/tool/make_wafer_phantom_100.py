@@ -4,36 +4,54 @@ import settings
 
 if __name__ == "__main__":
     filename = "initial_wafer_phantoms.npz"
-    shape = (50, 100, 100)
-    material_names = settings.MATERIAL_ID_NAME
-    default = 0
-    voxels = np.array([default] * (shape[0] * shape[1] * shape[2]))
-    voxels = voxels.reshape(shape)
+    shape = (50, 10, 50)
+    material_id_name = settings.MATERIAL_INDEX_NAME
+    vacuum_mat_id = 0
+    z_layer_materials = {
+        "Silicon": [0, 20],
+        "SiO2": [20, 45],
+        "PhotoResist": [45, 46],
+        "Vacuum": [46, 50]
+    }
+    excavation_zyx = [
+        [[45, 46], [0, 10], [0, 20]],
+        [[45, 46], [0, 10], [25, 30]],
+        [[45, 46], [0, 10], [35, 40]],
+        [[45, 46], [0, 10], [45, 50]],
+    ]
 
-    silicon_z = [(0, 20)]
-    silicon_x = [(0, 100)]
-    silicon_y = [(0, 100)]
-    sio2_z = [(20, 45)]
-    sio2_x = [(0, 100)]
-    sio2_y = [(0, 100)]
-    resist_z = [(45, 46), (45, 46)]
-    resist_x = [(20, 40), (60, 80)]
-    resist_y = [(0, 100), (0, 100)]
+    material_name_id = dict()
+    for key, name in material_id_name.items():
+        material_name_id[name] = key
 
-    material_assign = dict()
-    material_assign[1] = [silicon_x, silicon_y, silicon_z]
-    material_assign[2] = [sio2_x, sio2_y, sio2_z]
-    material_assign[3] = [resist_x, resist_y, resist_z]
-    for name_ind, vertexes in material_assign.items():
-        for i in range(len(vertexes[0])):
-            x0 = vertexes[0][i][0]
-            x1 = vertexes[0][i][1]
-            y0 = vertexes[1][i][0]
-            y1 = vertexes[1][i][1]
-            z0 = vertexes[2][i][0]
-            z1 = vertexes[2][i][1]
-            voxels[z0:z1, y0:y1, x0:x1] = name_ind
+    # voxels = np.array([vacuum_mat_id] * (shape[0] * shape[1] * shape[2]))
+    # densities = np.array([-1.] * len(voxels))
+    # voxels = voxels.reshape(shape)
+    # # fill materials
+    # for mat_name, z_range in z_layer_materials.items():
+    #     mat_id = material_name_id[mat_name]
+    #     voxels[z_range[0]:z_range[1], :, :] = mat_id
+    # # excavation
+    # for z_range, y_range, x_range in excavation_zyx:
+    #     voxels[z_range[0]:z_range[1],
+    #            y_range[0]:y_range[1],
+    #            x_range[0]:x_range[1]] = vacuum_mat_id
+    #
+    # voxels = voxels.flatten()
+    # np.savez_compressed(filename, voxel=voxels, density=densities)
 
-    voxels = voxels.flatten()
-    densities = np.array([-1.]*len(voxels))
-    np.savez_compressed(filename, voxel=voxels, density=densities)
+    voxels = np.zeros((shape[0], shape[1], shape[2], len(material_id_name)))
+    # fill materials
+    for mat_name, z_range in z_layer_materials.items():
+        mat_id = material_name_id[mat_name]
+        voxels[z_range[0]:z_range[1], :, :, mat_id] = 1.0
+    # excavation
+    assign_vacuum = [0.]*len(material_id_name)
+    assign_vacuum[vacuum_mat_id] = 1.0
+    for z_range, y_range, x_range in excavation_zyx:
+        voxels[z_range[0]:z_range[1],
+               y_range[0]:y_range[1],
+               x_range[0]:x_range[1]] = assign_vacuum
+
+    voxels = voxels.reshape(-1, len(material_id_name))
+    np.savez_compressed(filename, voxel=voxels)

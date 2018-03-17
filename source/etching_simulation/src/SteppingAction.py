@@ -38,3 +38,5 @@ class SteppingAction(G4UserSteppingAction):
                 post_pos, post_mat_name
             )
         )
+
+        # import ipdb;ipdb.set_trace()

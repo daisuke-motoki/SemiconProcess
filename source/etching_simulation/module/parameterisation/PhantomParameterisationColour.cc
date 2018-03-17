@@ -11,7 +11,7 @@ PhantomParameterisationColour::PhantomParameterisationColour()
 : G4PhantomParameterisation()
 ///////////////////////////////////////////////////////////////
 {
-    SetSkipEqualMaterials(false);
+    SetSkipEqualMaterials(true);
 
     //----- Add a G4VisAttributes for materials not defined in file;
     G4VisAttributes* blankAtt = new G4VisAttributes;
